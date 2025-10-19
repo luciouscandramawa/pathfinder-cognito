@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Briefcase, ArrowRight, Video } from "lucide-react";
 import VideoPrompt from "./VideoPrompt";
+import { apiNextItem, apiSubmit } from "@/integrations/api/client";
 
 interface Question {
   id: number;
@@ -14,36 +15,21 @@ interface Question {
   difficulty?: number;
 }
 
-const careerQuestions: Question[] = [
+// Questions come dynamically from backend; static only as fallback
+const fallbackQuestions: Question[] = [
   {
     id: 1,
     type: "mcq",
     question: "A teammate is struggling to meet an important deadline. What would you do?",
     options: [
-      "Notify the team leader immediately",
       "Offer to help them with specific tasks",
+      "Notify the team leader",
       "Wait to see if they can handle it alone",
       "Provide advice on time management strategies",
     ],
     difficulty: 1,
   },
-  {
-    id: 2,
-    type: "mcq",
-    question: "During a virtual team meeting, you notice someone's idea being ignored. How do you respond?",
-    options: [
-      "Stay quiet to avoid conflict",
-      "Acknowledge their idea and ask for others' thoughts",
-      "Move the discussion forward quickly",
-      "Support the idea privately after the meeting",
-    ],
-    difficulty: 2,
-  },
-  {
-    id: 3,
-    type: "video",
-    question: "You're part of a virtual design team creating a community campaign. Explain how you'd balance creativity with meeting client goals.",
-  },
+  { id: 3, type: "video", question: "Describe how you'd balance creativity with meeting client goals." },
 ];
 
 interface Props {
@@ -55,9 +41,31 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
   const [answers, setAnswers] = useState<any[]>([]);
   const [selectedOption, setSelectedOption] = useState<string>("");
   const [scores, setScores] = useState({ teamwork: 0, empathy: 0, communication: 0 });
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [dynamicItem, setDynamicItem] = useState<any | null>(null);
 
-  const question = careerQuestions[currentQuestion];
-  const isLastQuestion = currentQuestion === careerQuestions.length - 1;
+  const question: any = dynamicItem || fallbackQuestions[currentQuestion];
+  const isLastQuestion = !dynamicItem && currentQuestion === fallbackQuestions.length - 1;
+
+  useEffect(() => {
+    const sid = (window as any).__ASSESS_SESSION_ID__ as string | undefined;
+    if (sid) setSessionId(sid);
+  }, []);
+
+  useEffect(() => {
+    // try to fetch the next adaptive item if we have a session
+    (async () => {
+      try {
+        const sid = (window as any).__ASSESS_SESSION_ID__ as string | undefined;
+        if (!sid) return;
+        setSessionId(sid);
+        const res = await apiNextItem(sid, "career");
+        setDynamicItem(res.item);
+      } catch {
+        setDynamicItem(null);
+      }
+    })();
+  }, []);
 
   const handleNext = () => {
     // Simple rule-based scoring for MCQs
@@ -88,10 +96,23 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     setAnswers(newAnswers);
     setSelectedOption("");
 
-    if (isLastQuestion) {
+    if (sessionId && dynamicItem) {
+      try { await apiSubmit(sessionId, "career", String(question.id), { answer: selectedOption }); } catch {}
+    }
+    if (isLastQuestion && !dynamicItem) {
       onComplete(newAnswers.concat([{ type: "subscores", value: scores }]))
     } else {
-      setCurrentQuestion(currentQuestion + 1);
+      if (dynamicItem) {
+        // fetch next adaptive item
+        try {
+          const res = await apiNextItem(sessionId!, "career");
+          setDynamicItem(res.item);
+        } catch {
+          onComplete(newAnswers.concat([{ type: "subscores", value: scores }]));
+        }
+      } else {
+        setCurrentQuestion(currentQuestion + 1);
+      }
     }
   };
 
@@ -119,10 +140,22 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
 
-    if (isLastQuestion) {
+    if (sessionId && dynamicItem) {
+      try { await apiSubmit(sessionId, "career", String(question.id), videoData); } catch {}
+    }
+    if (isLastQuestion && !dynamicItem) {
       onComplete(newAnswers.concat([{ type: "subscores", value: { ...scores, communication: scores.communication + communicationBoost } }]))
     } else {
-      setCurrentQuestion(currentQuestion + 1);
+      if (dynamicItem) {
+        try {
+          const res = await apiNextItem(sessionId!, "career");
+          setDynamicItem(res.item);
+        } catch {
+          onComplete(newAnswers.concat([{ type: "subscores", value: { ...scores, communication: scores.communication + communicationBoost } }]));
+        }
+      } else {
+        setCurrentQuestion(currentQuestion + 1);
+      }
     }
   };
 

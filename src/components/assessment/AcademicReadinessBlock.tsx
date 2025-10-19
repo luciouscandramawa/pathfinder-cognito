@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -44,20 +44,43 @@ interface Props {
   onComplete: (answers: any[]) => void;
 }
 
+import { apiNextItem, apiSubmit } from "@/integrations/api/client";
+
 const AcademicReadinessBlock = ({ onComplete }: Props) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<any[]>([]);
   const [selectedOption, setSelectedOption] = useState<string>("");
   const [textAnswer, setTextAnswer] = useState<string>("");
   const [scores, setScores] = useState({ logic: 0, creativity: 0 });
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [dynamicItem, setDynamicItem] = useState<any | null>(null);
 
-  const question = academicQuestions[currentQuestion];
-  const isLastQuestion = currentQuestion === academicQuestions.length - 1;
+  const question: any = dynamicItem || academicQuestions[currentQuestion];
+  const isLastQuestion = !dynamicItem && currentQuestion === academicQuestions.length - 1;
+
+  useEffect(() => {
+    const sid = (window as any).__ASSESS_SESSION_ID__ as string | undefined;
+    if (sid) setSessionId(sid);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const sid = (window as any).__ASSESS_SESSION_ID__ as string | undefined;
+        if (!sid) return;
+        setSessionId(sid);
+        const res = await apiNextItem(sid, "academic");
+        setDynamicItem(res.item);
+      } catch {
+        setDynamicItem(null);
+      }
+    })();
+  }, []);
 
   const canProceed =
     question.type === "mcq" ? selectedOption !== "" : textAnswer.trim().length > 20;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Simple routing: if MCQ correct (assume option[0] correct for demo), add logic
     if (question.type === "mcq") {
       const correct = question.options?.[0] === selectedOption;
@@ -80,10 +103,26 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
     setSelectedOption("");
     setTextAnswer("");
 
-    if (isLastQuestion) {
+    if (sessionId && dynamicItem) {
+      try {
+        await apiSubmit(sessionId, "academic", String(question.id), {
+          answer: question.type === "mcq" ? selectedOption : textAnswer,
+        });
+      } catch {}
+    }
+    if (isLastQuestion && !dynamicItem) {
       onComplete(newAnswers.concat([{ type: "subscores", value: scores }]));
     } else {
-      setCurrentQuestion(currentQuestion + 1);
+      if (dynamicItem) {
+        try {
+          const res = await apiNextItem(sessionId!, "academic");
+          setDynamicItem(res.item);
+        } catch {
+          onComplete(newAnswers.concat([{ type: "subscores", value: scores }]));
+        }
+      } else {
+        setCurrentQuestion(currentQuestion + 1);
+      }
     }
   };
 

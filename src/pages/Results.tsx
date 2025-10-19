@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,14 +12,8 @@ import {
   Home,
   Sparkles,
 } from "lucide-react";
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-} from "recharts";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
+import { apiRecommendations } from "@/integrations/api/client";
 
 const Results = () => {
   const location = useLocation();
@@ -33,6 +28,27 @@ const Results = () => {
     : { logic: 0, creativity: 0 };
   const focusScore = typeof data.cognitiveScore === "number" ? data.cognitiveScore : 75;
 
+  const [dynamicCareers, setDynamicCareers] = useState<any[] | null>(null);
+  const [dynamicMajors, setDynamicMajors] = useState<string[] | null>(null);
+
+  const subscores = useMemo(() => {
+    if (data?.subscores) return data.subscores as Record<string, number>;
+    return { teamwork: careerSubs.teamwork || 0, empathy: careerSubs.empathy || 0, communication: careerSubs.communication || 0, logic: academicSubs.logic || 0, creativity: academicSubs.creativity || 0 };
+  }, [data, careerSubs, academicSubs]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiRecommendations(subscores);
+        setDynamicCareers(res.careers);
+        setDynamicMajors(res.majors);
+      } catch {
+        setDynamicCareers(null);
+        setDynamicMajors(null);
+      }
+    })();
+  }, [subscores]);
+
   // Mock analysis based on assessment data
   const norm = (val: number, max: number) => Math.max(0, Math.min(100, Math.round((val / max) * 100)));
   const skillsData = [
@@ -43,7 +59,7 @@ const Results = () => {
     { skill: "Problem Solving", score: norm((academicSubs.logic || 0) + (careerSubs.teamwork || 0), 10) },
   ];
 
-  const careerRecommendations = [
+  const careerRecommendations = dynamicCareers || [
     {
       title: "UX/UI Designer",
       match: 94,
@@ -64,12 +80,7 @@ const Results = () => {
     },
   ];
 
-  const majorRecommendations = [
-    "Human-Computer Interaction",
-    "Business Administration with Tech Focus",
-    "Psychology with Design Thinking",
-    "Information Systems",
-  ];
+  const majorRecommendations = dynamicMajors || ["Human-Computer Interaction", "Business Administration with Tech Focus", "Psychology with Design Thinking", "Information Systems"];
 
   return (
     <div className="min-h-screen bg-gradient-hero">

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import CareerReadinessBlock from "@/components/assessment/CareerReadinessBlock";
 import AcademicReadinessBlock from "@/components/assessment/AcademicReadinessBlock";
 import CognitiveGame from "@/components/assessment/CognitiveGame";
 import { CheckCircle2 } from "lucide-react";
+import { apiFinalize, apiNextItem, apiStartSession, apiSubmit } from "@/integrations/api/client";
 
 type AssessmentPhase = "career" | "academic" | "cognitive" | "complete";
 
@@ -14,6 +15,21 @@ const Assessment = () => {
   const [careerAnswers, setCareerAnswers] = useState<any[]>([]);
   const [academicAnswers, setAcademicAnswers] = useState<any[]>([]);
   const [cognitiveScore, setCognitiveScore] = useState<number>(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await apiStartSession();
+        setSessionId(s.session_id);
+        (window as any).__ASSESS_SESSION_ID__ = s.session_id;
+      } catch (e) {
+        // fallback to local-only mode
+        setSessionId("local");
+        (window as any).__ASSESS_SESSION_ID__ = undefined;
+      }
+    })();
+  }, []);
 
   const getProgress = () => {
     switch (phase) {
@@ -40,9 +56,16 @@ const Assessment = () => {
     setPhase("cognitive");
   };
 
-  const handleCognitiveComplete = (score: number) => {
+  const handleCognitiveComplete = async (score: number) => {
     setCognitiveScore(score);
     setPhase("complete");
+    let subscores: Record<string, number> | undefined;
+    try {
+      if (sessionId && sessionId !== "local") {
+        const f = await apiFinalize(sessionId);
+        subscores = f.subscores;
+      }
+    } catch {}
     // Navigate to results with all data
     setTimeout(() => {
       navigate("/results", {
@@ -50,9 +73,10 @@ const Assessment = () => {
           careerAnswers,
           academicAnswers,
           cognitiveScore: score,
+          subscores: subscores,
         },
       });
-    }, 1500);
+    }, 1200);
   };
 
   return (
