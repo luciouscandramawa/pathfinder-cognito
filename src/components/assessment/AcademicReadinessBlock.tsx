@@ -49,6 +49,7 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
   const [answers, setAnswers] = useState<any[]>([]);
   const [selectedOption, setSelectedOption] = useState<string>("");
   const [textAnswer, setTextAnswer] = useState<string>("");
+  const [scores, setScores] = useState({ logic: 0, creativity: 0 });
 
   const question = academicQuestions[currentQuestion];
   const isLastQuestion = currentQuestion === academicQuestions.length - 1;
@@ -57,6 +58,16 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
     question.type === "mcq" ? selectedOption !== "" : textAnswer.trim().length > 20;
 
   const handleNext = () => {
+    // Simple routing: if MCQ correct (assume option[0] correct for demo), add logic
+    if (question.type === "mcq") {
+      const correct = question.options?.[0] === selectedOption;
+      setScores((prev) => ({ ...prev, logic: prev.logic + (correct ? 2 : 0) }));
+    } else {
+      // Longer answers count toward creativity
+      const extraCreativity = Math.min(3, Math.floor(textAnswer.trim().length / 60));
+      setScores((prev) => ({ ...prev, creativity: prev.creativity + 1 + extraCreativity }));
+    }
+
     const answer = {
       questionId: question.id,
       type: question.type,
@@ -70,7 +81,7 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
     setTextAnswer("");
 
     if (isLastQuestion) {
-      onComplete(newAnswers);
+      onComplete(newAnswers.concat([{ type: "subscores", value: scores }]));
     } else {
       setCurrentQuestion(currentQuestion + 1);
     }

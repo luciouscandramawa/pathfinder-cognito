@@ -24,14 +24,23 @@ const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const data = location.state || {};
+  // Derive scores from answers
+  const careerSubs = Array.isArray(data.careerAnswers)
+    ? (data.careerAnswers.find((a: any) => a?.type === "subscores")?.value || { teamwork: 0, empathy: 0, communication: 0 })
+    : { teamwork: 0, empathy: 0, communication: 0 };
+  const academicSubs = Array.isArray(data.academicAnswers)
+    ? (data.academicAnswers.find((a: any) => a?.type === "subscores")?.value || { logic: 0, creativity: 0 })
+    : { logic: 0, creativity: 0 };
+  const focusScore = typeof data.cognitiveScore === "number" ? data.cognitiveScore : 75;
 
   // Mock analysis based on assessment data
+  const norm = (val: number, max: number) => Math.max(0, Math.min(100, Math.round((val / max) * 100)));
   const skillsData = [
-    { skill: "Logic", score: 82 },
-    { skill: "Creativity", score: 91 },
-    { skill: "Communication", score: 88 },
-    { skill: "Focus", score: data.cognitiveScore || 75 },
-    { skill: "Problem Solving", score: 85 },
+    { skill: "Logic", score: norm(academicSubs.logic || 0, 6) },
+    { skill: "Creativity", score: norm(academicSubs.creativity || 0, 6) },
+    { skill: "Communication", score: norm(careerSubs.communication || 0, 8) },
+    { skill: "Focus", score: focusScore },
+    { skill: "Problem Solving", score: norm((academicSubs.logic || 0) + (careerSubs.teamwork || 0), 10) },
   ];
 
   const careerRecommendations = [

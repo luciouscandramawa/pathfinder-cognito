@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Camera, Circle, Square, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { hfSentiment, hfWhisperTranscribe } from "@/integrations/ai/hf";
 
 interface Props {
   question: string;
@@ -13,10 +14,12 @@ interface Props {
 const VideoPrompt = ({ question, onComplete, icon }: Props) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState<string | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const startRecording = async () => {
     try {
@@ -37,6 +40,7 @@ const VideoPrompt = ({ question, onComplete, icon }: Props) => {
         const blob = new Blob(chunks, { type: "video/webm" });
         const url = URL.createObjectURL(blob);
         setRecordedVideo(url);
+        setRecordedBlob(blob);
 
         // Stop all tracks
         stream.getTracks().forEach((track) => track.stop());
@@ -71,12 +75,40 @@ const VideoPrompt = ({ question, onComplete, icon }: Props) => {
     }
   };
 
-  const handleSubmit = () => {
-    onComplete({
-      videoUrl: recordedVideo,
-      duration: recordingTime,
-      timestamp: Date.now(),
-    });
+  const handleSubmit = async () => {
+    if (!recordedBlob) {
+      onComplete({
+        videoUrl: recordedVideo,
+        duration: recordingTime,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      toast.message("Analyzing your response...");
+      const transcript = await hfWhisperTranscribe(recordedBlob);
+      let sentiment = null as any;
+      if (transcript && transcript.trim().length > 0) {
+        sentiment = await hfSentiment(transcript);
+      }
+      onComplete({
+        videoUrl: recordedVideo,
+        duration: recordingTime,
+        timestamp: Date.now(),
+        transcript: transcript || null,
+        sentiment: sentiment || null,
+      });
+    } catch (e) {
+      onComplete({
+        videoUrl: recordedVideo,
+        duration: recordingTime,
+        timestamp: Date.now(),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -140,6 +172,7 @@ const VideoPrompt = ({ question, onComplete, icon }: Props) => {
               <Button
                 onClick={() => {
                   setRecordedVideo(null);
+                  setRecordedBlob(null);
                   setRecordingTime(0);
                 }}
                 variant="outline"
@@ -149,9 +182,10 @@ const VideoPrompt = ({ question, onComplete, icon }: Props) => {
               </Button>
               <Button
                 onClick={handleSubmit}
-                className="flex-1 bg-gradient-primary hover:opacity-90"
+                className="flex-1 bg-gradient-primary hover:opacity-90 disabled:opacity-70"
+                disabled={isSubmitting}
               >
-                Submit Response
+                {isSubmitting ? "Analyzing..." : "Submit Response"}
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </>

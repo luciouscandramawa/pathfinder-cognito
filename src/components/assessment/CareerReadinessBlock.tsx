@@ -54,11 +54,29 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<any[]>([]);
   const [selectedOption, setSelectedOption] = useState<string>("");
+  const [scores, setScores] = useState({ teamwork: 0, empathy: 0, communication: 0 });
 
   const question = careerQuestions[currentQuestion];
   const isLastQuestion = currentQuestion === careerQuestions.length - 1;
 
   const handleNext = () => {
+    // Simple rule-based scoring for MCQs
+    const option = selectedOption;
+    const optionScore = (() => {
+      // Heuristic: offer help/acknowledge -> higher empathy/teamwork
+      if (option.includes("help")) return { teamwork: 2, empathy: 2, communication: 1 };
+      if (option.includes("Acknowledge") || option.toLowerCase().includes("acknowledge")) return { teamwork: 1, empathy: 1, communication: 2 };
+      if (option.includes("leader") || option.toLowerCase().includes("notify")) return { teamwork: 1, empathy: 0, communication: 1 };
+      if (option.toLowerCase().includes("wait") || option.toLowerCase().includes("ignore")) return { teamwork: 0, empathy: 0, communication: 0 };
+      if (option.toLowerCase().includes("advice") || option.toLowerCase().includes("advise")) return { teamwork: 1, empathy: 1, communication: 1 };
+      return { teamwork: 1, empathy: 1, communication: 1 };
+    })();
+    setScores((prev) => ({
+      teamwork: prev.teamwork + optionScore.teamwork,
+      empathy: prev.empathy + optionScore.empathy,
+      communication: prev.communication + optionScore.communication,
+    }));
+
     const answer = {
       questionId: question.id,
       type: question.type,
@@ -71,13 +89,26 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     setSelectedOption("");
 
     if (isLastQuestion) {
-      onComplete(newAnswers);
+      onComplete(newAnswers.concat([{ type: "subscores", value: scores }]))
     } else {
       setCurrentQuestion(currentQuestion + 1);
     }
   };
 
   const handleVideoComplete = (videoData: any) => {
+    // If transcript sentiment present, boost communication score
+    let communicationBoost = 0;
+    const sent = videoData?.sentiment as Array<{ label: string; score: number }> | undefined;
+    if (Array.isArray(sent) && sent.length > 0) {
+      const positive = sent.find((s) => s.label.toUpperCase().includes("POSITIVE"));
+      if (positive) {
+        communicationBoost = Math.round(positive.score * 3);
+      }
+    }
+    if (communicationBoost > 0) {
+      setScores((prev) => ({ ...prev, communication: prev.communication + communicationBoost }));
+    }
+
     const answer = {
       questionId: question.id,
       type: "video",
@@ -89,7 +120,7 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     setAnswers(newAnswers);
 
     if (isLastQuestion) {
-      onComplete(newAnswers);
+      onComplete(newAnswers.concat([{ type: "subscores", value: { ...scores, communication: scores.communication + communicationBoost } }]))
     } else {
       setCurrentQuestion(currentQuestion + 1);
     }
