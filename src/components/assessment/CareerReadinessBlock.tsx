@@ -67,7 +67,7 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     })();
   }, []);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Simple rule-based scoring for MCQs
     const option = selectedOption;
     const optionScore = (() => {
@@ -116,7 +116,7 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     }
   };
 
-  const handleVideoComplete = (videoData: any) => {
+  const handleVideoComplete = async (videoData: any) => {
     // If transcript sentiment present, boost communication score
     let communicationBoost = 0;
     const sent = videoData?.sentiment as Array<{ label: string; score: number }> | undefined;
@@ -168,7 +168,7 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
         <div>
           <h2 className="text-2xl font-bold">Career Readiness</h2>
           <p className="text-muted-foreground">
-            Question {currentQuestion + 1} of {careerQuestions.length}
+            Question {currentQuestion + 1} of {fallbackQuestions.length}
           </p>
         </div>
       </div>
