@@ -54,6 +54,7 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
   const [scores, setScores] = useState({ logic: 0, creativity: 0 });
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [dynamicItem, setDynamicItem] = useState<any | null>(null);
+  const [timeLeft, setTimeLeft] = useState(75);
 
   const question: any = dynamicItem || academicQuestions[currentQuestion];
   const isLastQuestion = !dynamicItem && currentQuestion === academicQuestions.length - 1;
@@ -76,6 +77,25 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    setTimeLeft(75);
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          const canSubmit = question.type === "mcq" ? selectedOption !== "" : textAnswer.trim().length > 20;
+          if (canSubmit) {
+            handleNext();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentQuestion, dynamicItem]);
 
   const canProceed =
     question.type === "mcq" ? selectedOption !== "" : textAnswer.trim().length > 20;
@@ -128,15 +148,20 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-          <GraduationCap className="w-6 h-6 text-secondary" />
+      <div className="flex items-center justify-between gap-3 mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
+            <GraduationCap className="w-6 h-6 text-secondary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold">Academic Readiness</h2>
+            <p className="text-muted-foreground">
+              Question {currentQuestion + 1} of {academicQuestions.length}
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold">Academic Readiness</h2>
-          <p className="text-muted-foreground">
-            Question {currentQuestion + 1} of {academicQuestions.length}
-          </p>
+        <div className={`text-2xl font-bold ${timeLeft <= 10 ? 'text-destructive' : 'text-secondary'}`}>
+          ⏱️ {timeLeft}s
         </div>
       </div>
 

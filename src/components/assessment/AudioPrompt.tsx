@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mic, Circle, Square, ArrowRight } from "lucide-react";
@@ -20,6 +20,7 @@ const AudioPrompt = ({ question, onComplete, icon }: Props) => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [timeLeft, setTimeLeft] = useState(75);
 
   const startRecording = async () => {
     try {
@@ -112,13 +113,38 @@ const AudioPrompt = ({ question, onComplete, icon }: Props) => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  useEffect(() => {
+    setTimeLeft(75);
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (recordedBlob && !isSubmitting) {
+            handleSubmit();
+          } else if (isRecording) {
+            stopRecording();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <Card className="shadow-card">
       <CardHeader>
-        <CardTitle className="text-xl flex items-center gap-2">
-          {icon || <Mic className="w-6 h-6 text-primary" />}
-          {question}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xl flex items-center gap-2">
+            {icon || <Mic className="w-6 h-6 text-primary" />}
+            {question}
+          </CardTitle>
+          <div className={`text-2xl font-bold ${timeLeft <= 10 ? 'text-destructive' : 'text-primary'}`}>
+            ⏱️ {timeLeft}s
+          </div>
+        </div>
         <p className="text-sm text-muted-foreground mt-2">
           Record a 30-60 second audio response. Speak clearly and share your thoughts.
         </p>

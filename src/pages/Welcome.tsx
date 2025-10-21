@@ -3,15 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Brain, Camera, Mic, Shield, Sparkles, Target } from "lucide-react";
+import { Brain, Mic, Shield, Sparkles, Target } from "lucide-react";
 
 const Welcome = () => {
   const navigate = useNavigate();
-  const [cameraConsent, setCameraConsent] = useState(false);
   const [micConsent, setMicConsent] = useState(false);
   const [privacyConsent, setPrivacyConsent] = useState(false);
 
-  const canStart = cameraConsent && micConsent && privacyConsent;
+  const canStart = micConsent && privacyConsent;
 
   const handleBegin = () => {
     if (canStart) {
@@ -84,32 +83,11 @@ const Welcome = () => {
                 Privacy & Device Setup
               </h2>
               <p className="text-muted-foreground">
-                This assessment includes video responses and cognitive games. We need your permission to access your camera and microphone. Your data is encrypted and used only for assessment purposes.
+                This assessment includes audio responses and cognitive games. We need your permission to access your microphone. Your data is encrypted and used only for assessment purposes.
               </p>
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-start space-x-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                <Checkbox
-                  id="camera"
-                  checked={cameraConsent}
-                  onCheckedChange={(checked) => setCameraConsent(checked as boolean)}
-                  className="mt-1"
-                />
-                <div className="space-y-1 flex-1">
-                  <label
-                    htmlFor="camera"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
-                  >
-                    <Camera className="w-4 h-4 text-primary" />
-                    Camera Access
-                  </label>
-                  <p className="text-sm text-muted-foreground">
-                    Required for video response questions
-                  </p>
-                </div>
-              </div>
-
               <div className="flex items-start space-x-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                 <Checkbox
                   id="microphone"

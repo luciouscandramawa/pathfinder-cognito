@@ -43,6 +43,7 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
   const [scores, setScores] = useState({ teamwork: 0, empathy: 0, communication: 0 });
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [dynamicItem, setDynamicItem] = useState<any | null>(null);
+  const [timeLeft, setTimeLeft] = useState(75);
 
   const question: any = dynamicItem || fallbackQuestions[currentQuestion];
   const isLastQuestion = !dynamicItem && currentQuestion === fallbackQuestions.length - 1;
@@ -66,6 +67,24 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    setTimeLeft(75);
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (question.type === "mcq" && selectedOption) {
+            handleNext();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentQuestion, dynamicItem]);
 
   const handleNext = async () => {
     // Simple rule-based scoring for MCQs
@@ -161,15 +180,20 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Briefcase className="w-6 h-6 text-primary" />
+      <div className="flex items-center justify-between gap-3 mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Briefcase className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold">Career Readiness</h2>
+            <p className="text-muted-foreground">
+              Question {currentQuestion + 1} of {fallbackQuestions.length}
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold">Career Readiness</h2>
-          <p className="text-muted-foreground">
-            Question {currentQuestion + 1} of {fallbackQuestions.length}
-          </p>
+        <div className={`text-2xl font-bold ${timeLeft <= 10 ? 'text-destructive' : 'text-primary'}`}>
+          ⏱️ {timeLeft}s
         </div>
       </div>
 
