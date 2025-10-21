@@ -5,46 +5,21 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { GraduationCap, ArrowRight, Lightbulb } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { apiNextItem, apiSubmit } from "@/integrations/api/client";
 
 interface Question {
-  id: number;
-  type: "mcq" | "text";
+  id: string;
+  type: "mcq" | "text" | "audio";
   question: string;
   options?: string[];
-  prompt?: string;
+  difficulty?: number;
 }
-
-const academicQuestions: Question[] = [
-  {
-    id: 1,
-    type: "mcq",
-    question: "In a forest ecosystem, if the population of foxes decreases, which conclusion follows logically?",
-    options: [
-      "The rabbit population will likely increase",
-      "The plant population will decrease",
-      "The owl population will increase",
-      "There will be no significant changes",
-    ],
-  },
-  {
-    id: 2,
-    type: "text",
-    question: "Creative Thinking Challenge",
-    prompt: "Suggest three innovative ways to present recycling education to teenagers that would genuinely engage them.",
-  },
-  {
-    id: 3,
-    type: "text",
-    question: "Problem-Solving Approach",
-    prompt: "Describe your approach when facing a problem you've never encountered before. What steps do you take?",
-  },
-];
 
 interface Props {
   onComplete: (answers: any[]) => void;
 }
-
-import { apiNextItem, apiSubmit } from "@/integrations/api/client";
 
 const AcademicReadinessBlock = ({ onComplete }: Props) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -55,14 +30,45 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [dynamicItem, setDynamicItem] = useState<any | null>(null);
   const [timeLeft, setTimeLeft] = useState(75);
+  const [dbQuestions, setDbQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const question: any = dynamicItem || academicQuestions[currentQuestion];
-  const isLastQuestion = !dynamicItem && currentQuestion === academicQuestions.length - 1;
+  const question = dynamicItem || (dbQuestions.length > 0 ? dbQuestions[currentQuestion] : null);
+  const isLastQuestion = !dynamicItem && dbQuestions.length > 0 && currentQuestion === dbQuestions.length - 1;
 
   useEffect(() => {
     const sid = (window as any).__ASSESS_SESSION_ID__ as string | undefined;
     if (sid) setSessionId(sid);
+    
+    // Load questions from database
+    loadQuestionsFromDB();
   }, []);
+
+  const loadQuestionsFromDB = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("block", "academic")
+        .order("difficulty", { ascending: true });
+
+      if (error) throw error;
+      
+      const formattedQuestions = (data || []).map(q => ({
+        id: q.id,
+        type: q.type as "mcq" | "text" | "audio",
+        question: q.question,
+        options: q.options ? (Array.isArray(q.options) ? q.options as string[] : []) : undefined,
+        difficulty: q.difficulty
+      }));
+      
+      setDbQuestions(formattedQuestions);
+    } catch (error: any) {
+      toast.error("Failed to load questions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -146,6 +152,22 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto text-center py-12">
+        <p className="text-muted-foreground">Loading questions...</p>
+      </div>
+    );
+  }
+
+  if (!question || dbQuestions.length === 0) {
+    return (
+      <div className="max-w-3xl mx-auto text-center py-12">
+        <p className="text-muted-foreground">No questions available. Please contact an administrator.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-3 mb-8">
@@ -156,7 +178,7 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
           <div>
             <h2 className="text-2xl font-bold">Academic Readiness</h2>
             <p className="text-muted-foreground">
-              Question {currentQuestion + 1} of {academicQuestions.length}
+              Question {currentQuestion + 1} of {dbQuestions.length}
             </p>
           </div>
         </div>
@@ -171,9 +193,6 @@ const AcademicReadinessBlock = ({ onComplete }: Props) => {
             {question.type === "text" && <Lightbulb className="w-5 h-5 text-secondary" />}
             {question.question}
           </CardTitle>
-          {question.prompt && (
-            <p className="text-muted-foreground mt-2">{question.prompt}</p>
-          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {question.type === "mcq" ? (

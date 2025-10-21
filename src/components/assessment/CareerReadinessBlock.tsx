@@ -6,31 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Briefcase, ArrowRight, Mic } from "lucide-react";
 import AudioPrompt from "./AudioPrompt";
 import { apiNextItem, apiSubmit } from "@/integrations/api/client";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Question {
-  id: number;
-  type: "mcq" | "audio";
+  id: string;
+  type: "mcq" | "audio" | "text";
   question: string;
   options?: string[];
   difficulty?: number;
 }
-
-// Questions come dynamically from backend; static only as fallback
-const fallbackQuestions: Question[] = [
-  {
-    id: 1,
-    type: "mcq",
-    question: "A teammate is struggling to meet an important deadline. What would you do?",
-    options: [
-      "Offer to help them with specific tasks",
-      "Notify the team leader",
-      "Wait to see if they can handle it alone",
-      "Provide advice on time management strategies",
-    ],
-    difficulty: 1,
-  },
-  { id: 3, type: "audio", question: "Describe how you'd balance creativity with meeting client goals." },
-];
 
 interface Props {
   onComplete: (answers: any[]) => void;
@@ -44,14 +29,45 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [dynamicItem, setDynamicItem] = useState<any | null>(null);
   const [timeLeft, setTimeLeft] = useState(75);
+  const [dbQuestions, setDbQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const question: any = dynamicItem || fallbackQuestions[currentQuestion];
-  const isLastQuestion = !dynamicItem && currentQuestion === fallbackQuestions.length - 1;
+  const question = dynamicItem || (dbQuestions.length > 0 ? dbQuestions[currentQuestion] : null);
+  const isLastQuestion = !dynamicItem && dbQuestions.length > 0 && currentQuestion === dbQuestions.length - 1;
 
   useEffect(() => {
     const sid = (window as any).__ASSESS_SESSION_ID__ as string | undefined;
     if (sid) setSessionId(sid);
+    
+    // Load questions from database
+    loadQuestionsFromDB();
   }, []);
+
+  const loadQuestionsFromDB = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("block", "career")
+        .order("difficulty", { ascending: true });
+
+      if (error) throw error;
+      
+      const formattedQuestions = (data || []).map(q => ({
+        id: q.id,
+        type: q.type as "mcq" | "audio" | "text",
+        question: q.question,
+        options: q.options ? (Array.isArray(q.options) ? q.options as string[] : []) : undefined,
+        difficulty: q.difficulty
+      }));
+      
+      setDbQuestions(formattedQuestions);
+    } catch (error: any) {
+      toast.error("Failed to load questions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // try to fetch the next adaptive item if we have a session
@@ -178,6 +194,22 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto text-center py-12">
+        <p className="text-muted-foreground">Loading questions...</p>
+      </div>
+    );
+  }
+
+  if (!question || dbQuestions.length === 0) {
+    return (
+      <div className="max-w-3xl mx-auto text-center py-12">
+        <p className="text-muted-foreground">No questions available. Please contact an administrator.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-3 mb-8">
@@ -188,7 +220,7 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
           <div>
             <h2 className="text-2xl font-bold">Career Readiness</h2>
             <p className="text-muted-foreground">
-              Question {currentQuestion + 1} of {fallbackQuestions.length}
+              Question {currentQuestion + 1} of {dbQuestions.length}
             </p>
           </div>
         </div>
