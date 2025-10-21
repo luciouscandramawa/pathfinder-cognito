@@ -3,13 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Briefcase, ArrowRight, Video } from "lucide-react";
-import VideoPrompt from "./VideoPrompt";
+import { Briefcase, ArrowRight, Mic } from "lucide-react";
+import AudioPrompt from "./AudioPrompt";
 import { apiNextItem, apiSubmit } from "@/integrations/api/client";
 
 interface Question {
   id: number;
-  type: "mcq" | "video";
+  type: "mcq" | "audio";
   question: string;
   options?: string[];
   difficulty?: number;
@@ -29,7 +29,7 @@ const fallbackQuestions: Question[] = [
     ],
     difficulty: 1,
   },
-  { id: 3, type: "video", question: "Describe how you'd balance creativity with meeting client goals." },
+  { id: 3, type: "audio", question: "Describe how you'd balance creativity with meeting client goals." },
 ];
 
 interface Props {
@@ -116,10 +116,10 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     }
   };
 
-  const handleVideoComplete = async (videoData: any) => {
+  const handleAudioComplete = async (audioData: any) => {
     // If transcript sentiment present, boost communication score
     let communicationBoost = 0;
-    const sent = videoData?.sentiment as Array<{ label: string; score: number }> | undefined;
+    const sent = audioData?.sentiment as Array<{ label: string; score: number }> | undefined;
     if (Array.isArray(sent) && sent.length > 0) {
       const positive = sent.find((s) => s.label.toUpperCase().includes("POSITIVE"));
       if (positive) {
@@ -132,8 +132,8 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
 
     const answer = {
       questionId: question.id,
-      type: "video",
-      videoData,
+      type: "audio",
+      audioData,
       timestamp: Date.now(),
     };
 
@@ -141,7 +141,7 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
     setAnswers(newAnswers);
 
     if (sessionId && dynamicItem) {
-      try { await apiSubmit(sessionId, "career", String(question.id), videoData); } catch {}
+      try { await apiSubmit(sessionId, "career", String(question.id), audioData); } catch {}
     }
     if (isLastQuestion && !dynamicItem) {
       onComplete(newAnswers.concat([{ type: "subscores", value: { ...scores, communication: scores.communication + communicationBoost } }]))
@@ -208,10 +208,10 @@ const CareerReadinessBlock = ({ onComplete }: Props) => {
           </CardContent>
         </Card>
       ) : (
-        <VideoPrompt
+        <AudioPrompt
           question={question.question}
-          onComplete={handleVideoComplete}
-          icon={<Video className="w-6 h-6 text-primary" />}
+          onComplete={handleAudioComplete}
+          icon={<Mic className="w-6 h-6 text-primary" />}
         />
       )}
     </div>
