@@ -7,15 +7,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, LogOut } from "lucide-react";
 import { QuestionList } from "@/components/admin/QuestionList";
 import { QuestionDialog } from "@/components/admin/QuestionDialog";
-
-export type Question = {
-  id: string;
-  question: string;
-  type: "mcq" | "text" | "audio";
-  difficulty: number;
-  block: "career" | "academic";
-  options: string[] | null;
-};
+import { Question } from "@/types/question";
 
 export default function Admin() {
   const [isAdmin, setIsAdmin] = useState(false);
